@@ -63,8 +63,8 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
 ]
 
-CORS_ALLOWED_ORIGINS = ['http://localhost:5173,https://api.zglowawpiorach.pl, https://sklep.zglowawpiorach.pl']
-ALLOWED_HOSTS = ['localhost,127.0.0.1,https://api.zglowawpiorach.pl']
+CORS_ALLOWED_ORIGINS = ['http://localhost:5173','https://api.zglowawpiorach.pl', 'https://sklep.zglowawpiorach.pl']
+ALLOWED_HOSTS = ['localhost','127.0.0.1','https://api.zglowawpiorach.pl']
 
 
 
