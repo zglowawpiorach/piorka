@@ -64,7 +64,7 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = ['http://localhost:5173,https://api.zglowawpiorach.pl/']
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,https://api.zglowawpiorach.pl/').split(',')
+ALLOWED_HOSTS = ['localhost,127.0.0.1,https://api.zglowawpiorach.pl']
 
 
 
