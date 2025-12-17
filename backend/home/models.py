@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.forms import CheckboxSelectMultiple
 from django.utils.text import slugify
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel, InlinePanel
@@ -118,15 +119,15 @@ class Product(ClusterableModel):
     featured = models.BooleanField(default=False, verbose_name="Wyróżnij na stronie głównej")
 
     # New fields
-    nr_w_katalogu_zdjec = models.CharField(max_length=255, blank=True, verbose_name="Nr w katalogu zdjęć")
-    przeznaczenie_ogolne = models.CharField(max_length=255, choices=PRZEZNACZENIE_CHOICES, blank=True, verbose_name="Przeznaczenie ogólne")
-    dla_kogo = models.JSONField(default=list, blank=True, verbose_name="Dla kogo")
-    dlugosc_kategoria = models.CharField(max_length=255, choices=DLUGOSC_KATEGORIA_CHOICES, blank=True, verbose_name="Długość kategoria")
+    nr_w_katalogu_zdjec = models.CharField(max_length=255, blank=True, default='', verbose_name="Nr w katalogu zdjęć")
+    przeznaczenie_ogolne = models.CharField(max_length=255, choices=PRZEZNACZENIE_CHOICES, blank=True, default='', verbose_name="Przeznaczenie ogólne")
+    dla_kogo = models.JSONField(default=list, blank=True, null=False, verbose_name="Dla kogo")
+    dlugosc_kategoria = models.CharField(max_length=255, choices=DLUGOSC_KATEGORIA_CHOICES, blank=True, default='', verbose_name="Długość kategoria")
     dlugosc_w_cm = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name="Długość w cm")
-    kolor_pior = models.JSONField(default=list, blank=True, verbose_name="Kolor piór w przewadze")
-    gatunek_ptakow = models.JSONField(default=list, blank=True, verbose_name="Pióra zgubiły (gatunek)")
-    kolor_elementow_metalowych = models.CharField(max_length=255, choices=KOLOR_METALOWYCH_CHOICES, blank=True, verbose_name="Kolor elementów metalowych")
-    rodzaj_zapiecia = models.JSONField(default=list, blank=True, verbose_name="Rodzaj zapięcia")
+    kolor_pior = models.JSONField(default=list, blank=True, null=False, verbose_name="Kolor piór w przewadze")
+    gatunek_ptakow = models.JSONField(default=list, blank=True, null=False, verbose_name="Pióra zgubiły (gatunek)")
+    kolor_elementow_metalowych = models.CharField(max_length=255, choices=KOLOR_METALOWYCH_CHOICES, blank=True, default='', verbose_name="Kolor elementów metalowych")
+    rodzaj_zapiecia = models.JSONField(default=list, blank=True, null=False, verbose_name="Rodzaj zapięcia")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -171,7 +172,66 @@ class Product(ClusterableModel):
         ], heading="Stripe Integration"),
     ]
 
+    def clean(self):
+        """Validate model fields before saving"""
+        errors = {}
+
+        # Validate required fields
+        if not self.name or not self.name.strip():
+            errors['name'] = 'Nazwa (ang.) jest wymagana'
+
+        if not self.price or self.price <= 0:
+            errors['price'] = 'Cena podstawowa musi być większa niż 0'
+
+        # Validate JSONField fields are lists
+        if self.dla_kogo is not None and not isinstance(self.dla_kogo, list):
+            errors['dla_kogo'] = 'Nieprawidłowy format danych'
+
+        if self.kolor_pior is not None and not isinstance(self.kolor_pior, list):
+            errors['kolor_pior'] = 'Nieprawidłowy format danych'
+
+        if self.gatunek_ptakow is not None and not isinstance(self.gatunek_ptakow, list):
+            errors['gatunek_ptakow'] = 'Nieprawidłowy format danych'
+
+        if self.rodzaj_zapiecia is not None and not isinstance(self.rodzaj_zapiecia, list):
+            errors['rodzaj_zapiecia'] = 'Nieprawidłowy format danych'
+
+        # Validate choice fields have valid values
+        if self.przeznaczenie_ogolne and self.przeznaczenie_ogolne not in dict(self.PRZEZNACZENIE_CHOICES):
+            errors['przeznaczenie_ogolne'] = 'Nieprawidłowa wartość'
+
+        if self.dlugosc_kategoria and self.dlugosc_kategoria not in dict(self.DLUGOSC_KATEGORIA_CHOICES):
+            errors['dlugosc_kategoria'] = 'Nieprawidłowa wartość'
+
+        if self.kolor_elementow_metalowych and self.kolor_elementow_metalowych not in dict(self.KOLOR_METALOWYCH_CHOICES):
+            errors['kolor_elementow_metalowych'] = 'Nieprawidłowa wartość'
+
+        # Validate multiselect choices
+        for choice in self.dla_kogo or []:
+            if choice not in dict(self.DLA_KOGO_CHOICES):
+                errors['dla_kogo'] = f'Nieprawidłowa wartość: {choice}'
+                break
+
+        for choice in self.kolor_pior or []:
+            if choice not in dict(self.KOLOR_PIOR_CHOICES):
+                errors['kolor_pior'] = f'Nieprawidłowa wartość: {choice}'
+                break
+
+        for choice in self.gatunek_ptakow or []:
+            if choice not in dict(self.GATUNEK_PTAKOW_CHOICES):
+                errors['gatunek_ptakow'] = f'Nieprawidłowa wartość: {choice}'
+                break
+
+        for choice in self.rodzaj_zapiecia or []:
+            if choice not in dict(self.RODZAJ_ZAPIECIA_CHOICES):
+                errors['rodzaj_zapiecia'] = f'Nieprawidłowa wartość: {choice}'
+                break
+
+        if errors:
+            raise ValidationError(errors)
+
     def save(self, *args, **kwargs):
+        # Auto-generate slug from name
         if not self.slug:
             base_slug = slugify(self.name)
             slug = base_slug
@@ -180,6 +240,20 @@ class Product(ClusterableModel):
                 slug = f"{base_slug}-{counter}"
                 counter += 1
             self.slug = slug
+
+        # Ensure JSONField fields are never NULL, always use empty list
+        if self.dla_kogo is None:
+            self.dla_kogo = []
+        if self.kolor_pior is None:
+            self.kolor_pior = []
+        if self.gatunek_ptakow is None:
+            self.gatunek_ptakow = []
+        if self.rodzaj_zapiecia is None:
+            self.rodzaj_zapiecia = []
+
+        # Run validation before saving
+        self.full_clean()
+
         super().save(*args, **kwargs)
 
     @property
