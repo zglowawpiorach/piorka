@@ -75,6 +75,9 @@ class ProductAdminForm(ClusterForm):
         if commit:
             instance.save(update_fields=['dla_kogo', 'kolor_pior', 'gatunek_ptakow', 'rodzaj_zapiecia'])
 
+            # Remove any empty images that were saved
+            instance.images.filter(image__isnull=True).delete()
+
         return instance
 
 
