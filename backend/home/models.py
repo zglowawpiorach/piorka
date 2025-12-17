@@ -60,6 +60,22 @@ class ProductAdminForm(ClusterForm):
             if self.instance.rodzaj_zapiecia:
                 self.fields['rodzaj_zapiecia'].initial = self.instance.rodzaj_zapiecia
 
+    def save(self, commit=True):
+        # Convert MultipleChoiceField data to lists for JSONFields before saving
+        instance = super().save(commit=False)
+
+        instance.dla_kogo = self.cleaned_data.get('dla_kogo', [])
+        instance.kolor_pior = self.cleaned_data.get('kolor_pior', [])
+        instance.gatunek_ptakow = self.cleaned_data.get('gatunek_ptakow', [])
+        instance.rodzaj_zapiecia = self.cleaned_data.get('rodzaj_zapiecia', [])
+
+        if commit:
+            instance.save()
+            # Save formsets (for related objects like ProductImage)
+            self.save_m2m()
+
+        return instance
+
 
 class ProductImage(Orderable):
     """Product image with ordering support"""
