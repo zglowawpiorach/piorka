@@ -60,20 +60,21 @@ class ProductAdminForm(ClusterForm):
             if self.instance.rodzaj_zapiecia:
                 self.fields['rodzaj_zapiecia'].initial = self.instance.rodzaj_zapiecia
 
-        # Make image field in formsets not required
-        if 'images' in self.formsets:
-            for form in self.formsets['images'].forms:
-                if 'image' in form.fields:
-                    form.fields['image'].required = False
-
     def save(self, commit=True):
-        # Filter out empty image forms before saving
+        # Before calling parent save, filter out empty image forms
         if hasattr(self, 'formsets') and 'images' in self.formsets:
-            # Mark empty forms for deletion
-            for form in self.formsets['images'].forms:
-                if form.cleaned_data and not form.cleaned_data.get('image'):
-                    if form.cleaned_data.get('DELETE') is not False:
-                        form.cleaned_data['DELETE'] = True
+            formset = self.formsets['images']
+            # Remove forms that don't have an image
+            valid_forms = []
+            for form in formset.forms:
+                # Skip forms that are marked for deletion or don't have data
+                if form.cleaned_data.get('DELETE'):
+                    continue
+                # Only keep forms that have an image selected
+                if form.cleaned_data.get('image'):
+                    valid_forms.append(form)
+            # Replace the formset's forms with only valid ones
+            formset.forms = valid_forms
 
         # Let parent ClusterForm handle the save
         instance = super().save(commit=commit)
