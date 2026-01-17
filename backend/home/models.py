@@ -181,7 +181,7 @@ class Product(ClusterableModel):
     name = models.CharField(max_length=255, verbose_name="Nazwa (ang.)")
     tytul = models.CharField(max_length=255, blank=True, verbose_name="Nazwa (pl.)")
 
-    slug = models.SlugField(unique=True, blank=True, help_text="Automatycznie generowane z nazwy")
+    slug = models.SlugField(unique=True, blank=True, max_length=255, help_text="Automatycznie generowane z nazwy")
     
     description = RichTextField(blank=True, verbose_name="Opis (ang.)", default=" ")
     opis = RichTextField(blank=True, verbose_name="Opis (pl.)", default=" ")
