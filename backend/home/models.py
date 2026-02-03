@@ -388,6 +388,7 @@ class Event(ClusterableModel):
     location = models.CharField(max_length=500, verbose_name="Lokalizacja")
     start_date = models.DateTimeField(verbose_name="Data rozpoczęcia")
     end_date = models.DateTimeField(verbose_name="Data zakończenia")
+    external_url = models.URLField(blank=True, verbose_name="Link do zewnętrznej strony wydarzenia")
 
     active = models.BooleanField(default=True, db_index=True, verbose_name="Aktywny")
 
@@ -400,6 +401,7 @@ class Event(ClusterableModel):
         FieldPanel('location'),
         FieldPanel('start_date'),
         FieldPanel('end_date'),
+        FieldPanel('external_url'),
         FieldPanel('active'),
         InlinePanel('images', label="Zdjęcia", min_num=0),
     ]

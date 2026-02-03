@@ -119,6 +119,7 @@ def events_api(request):
             'location': event.location,
             'start_date': event.start_date.isoformat(),
             'end_date': event.end_date.isoformat(),
+            'external_url': event.external_url,
             'images': images,
             'created_at': event.created_at.isoformat(),
             'updated_at': event.updated_at.isoformat(),
