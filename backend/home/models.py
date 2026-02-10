@@ -135,6 +135,7 @@ class Product(ClusterableModel):
         ('bezowy', 'Beżowy'),
         ('bialy', 'Biały'),
         ('brazowy', 'Brązowy'),
+        ('zielony', 'Zielony'),
         ('czerwony', 'Czerwony'),
         ('czarny', 'Czarny'),
         ('granatowy', 'Granatowy'),
@@ -150,7 +151,6 @@ class Product(ClusterableModel):
     GATUNEK_PTAKOW_CHOICES = [
         ('bazant', 'Bażant'),
         ('emu', 'Emu'),
-        ('gawron', 'Gawron'),
         ('indyk', 'Indyk'),
         ('kura_kogut', 'Kura lub kogut'),
         ('papuga', 'Papuga'),
