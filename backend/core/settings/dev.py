@@ -11,6 +11,22 @@ ALLOWED_HOSTS = ["*"]
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
+# Logging overrides for development - more verbose
+LOGGING = {
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+        },
+    },
+    'loggers': {
+        'django': {
+            'level': 'DEBUG',
+        },
+        'api': {
+            'level': 'DEBUG',
+        },
+    },
+}
 
 try:
     from .local import *

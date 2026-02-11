@@ -1,8 +1,11 @@
 from django.http import JsonResponse
+from django.core.cache import cache
 from wagtail.images.models import Image
 from .models import Product, Event
+from .decorators import api_error_handler
 
 
+@api_error_handler
 def images_api(request):
     """
     API endpoint to get images filtered by tags.
@@ -40,6 +43,7 @@ def images_api(request):
     })
 
 
+@api_error_handler
 def products_api(request):
     """
     API endpoint to get active products.
@@ -55,11 +59,12 @@ def products_api(request):
         # Get all product images
         images = []
         for product_image in product.images.all():
-            images.append({
-                'url': request.build_absolute_uri(product_image.image.file.url),
-                'width': product_image.image.width,
-                'height': product_image.image.height,
-            })
+            if product_image.image:
+                images.append({
+                    'url': request.build_absolute_uri(product_image.image.file.url),
+                    'width': product_image.image.width,
+                    'height': product_image.image.height,
+                })
 
         product_list.append({
             'id': product.id,
@@ -91,6 +96,7 @@ def products_api(request):
     })
 
 
+@api_error_handler
 def events_api(request):
     """
     API endpoint to get active events.
@@ -106,11 +112,12 @@ def events_api(request):
         # Get all event images
         images = []
         for event_image in event.images.all():
-            images.append({
-                'url': request.build_absolute_uri(event_image.image.file.url),
-                'width': event_image.image.width,
-                'height': event_image.image.height,
-            })
+            if event_image.image:
+                images.append({
+                    'url': request.build_absolute_uri(event_image.image.file.url),
+                    'width': event_image.image.width,
+                    'height': event_image.image.height,
+                })
 
         event_list.append({
             'id': event.id,
@@ -129,3 +136,69 @@ def events_api(request):
         'count': len(event_list),
         'events': event_list
     })
+
+
+@api_error_handler
+def product_filters_api(request):
+    """
+    API endpoint to get all possible filter values for products.
+    Returns unique values for all filterable fields from active products.
+    Cached for 24 hours.
+    Usage: /api/product-filters/
+    """
+    cache_key = 'product_filters'
+
+    # Try to get from cache first
+    cached_data = cache.get(cache_key)
+    if cached_data is not None:
+        return JsonResponse(cached_data)
+
+    # Build filters from active products
+    products = Product.objects.filter(active=True)
+
+    # Single choice fields - use distinct()
+    przeznaczenie = list(products.exclude(przeznaczenie_ogolne='')
+                                          .values_list('przeznaczenie_ogolne', flat=True)
+                                          .distinct()
+                                          .order_by('przeznaczenie_ogolne'))
+
+    dlugosc_kat = list(products.exclude(dlugosc_kategoria='')
+                                      .values_list('dlugosc_kategoria', flat=True)
+                                      .distinct()
+                                      .order_by('dlugosc_kategoria'))
+
+    kolor_metalowych = list(products.exclude(kolor_elementow_metalowych='')
+                                            .values_list('kolor_elementow_metalowych', flat=True)
+                                            .distinct()
+                                            .order_by('kolor_elementow_metalowych'))
+
+    # JSONField multi-select - extract unique values
+    dla_kogo_set = set()
+    kolor_pior_set = set()
+    gatunek_set = set()
+    zapięcia_set = set()
+
+    for product in products.iterator():
+        for val in (product.dla_kogo or []):
+            dla_kogo_set.add(val)
+        for val in (product.kolor_pior or []):
+            kolor_pior_set.add(val)
+        for val in (product.gatunek_ptakow or []):
+            gatunek_set.add(val)
+        for val in (product.rodzaj_zapiecia or []):
+            zapięcia_set.add(val)
+
+    response_data = {
+        'przeznaczenie_ogolne': przeznaczenie,
+        'dla_kogo': sorted(dla_kogo_set),
+        'dlugosc_kategoria': dlugosc_kat,
+        'kolor_pior': sorted(kolor_pior_set),
+        'gatunek_ptakow': sorted(gatunek_set),
+        'kolor_elementow_metalowych': kolor_metalowych,
+        'rodzaj_zapiecia': sorted(zapięcia_set),
+    }
+
+    # Cache for 24 hours
+    cache.set(cache_key, response_data, 86400)
+
+    return JsonResponse(response_data)

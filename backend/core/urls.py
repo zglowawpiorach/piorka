@@ -17,6 +17,7 @@ urlpatterns = [
     path("api/images/", home_views.images_api, name="images_api"),
     path("api/products/", home_views.products_api, name="products_api"),
     path("api/events/", home_views.events_api, name="events_api"),
+    path("api/product-filters/", home_views.product_filters_api, name="product_filters_api"),
 ]
 
 

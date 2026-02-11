@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.core.cache import cache
 from django import forms
 from django.utils.text import slugify
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel, InlinePanel
@@ -340,6 +341,14 @@ class Product(ClusterableModel):
             self.rodzaj_zapiecia = []
 
         super().save(*args, **kwargs)
+
+        # Invalidate product filters cache when product changes
+        cache.delete('product_filters')
+
+    def delete(self, *args, **kwargs):
+        # Invalidate product filters cache when product is deleted
+        cache.delete('product_filters')
+        super().delete(*args, **kwargs)
 
     @property
     def primary_image(self):
