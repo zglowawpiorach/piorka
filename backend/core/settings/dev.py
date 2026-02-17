@@ -12,21 +12,9 @@ ALLOWED_HOSTS = ["*"]
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 # Logging overrides for development - more verbose
-LOGGING = {
-    'handlers': {
-        'console': {
-            'level': 'DEBUG',
-        },
-    },
-    'loggers': {
-        'django': {
-            'level': 'DEBUG',
-        },
-        'api': {
-            'level': 'DEBUG',
-        },
-    },
-}
+LOGGING['handlers']['console']['level'] = 'DEBUG'
+LOGGING['loggers']['django']['level'] = 'DEBUG'
+LOGGING['loggers']['api']['level'] = 'DEBUG'
 
 try:
     from .local import *

@@ -11,24 +11,10 @@ STORAGES["staticfiles"][
 ] = "django.contrib.staticfiles.storage.ManifestStaticFilesStorage"
 
 # Logging overrides for production - reduce verbosity
-LOGGING = {
-    'handlers': {
-        'console': {
-            'level': 'INFO',
-        },
-        'file': {
-            'level': 'INFO',
-        },
-    },
-    'loggers': {
-        'django': {
-            'level': 'WARNING',
-        },
-        'api': {
-            'level': 'INFO',
-        },
-    },
-}
+LOGGING['handlers']['console']['level'] = 'INFO'
+LOGGING['handlers']['file']['level'] = 'INFO'
+LOGGING['loggers']['django']['level'] = 'WARNING'
+LOGGING['loggers']['api']['level'] = 'INFO'
 
 try:
     from .local import *

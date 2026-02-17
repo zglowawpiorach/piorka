@@ -8,6 +8,7 @@ from wagtail.documents import urls as wagtaildocs_urls
 
 from search import views as search_views
 from home import views as home_views
+from home.api.webhooks import stripe_webhook
 
 urlpatterns = [
     path("django-admin/", admin.site.urls),
@@ -18,6 +19,10 @@ urlpatterns = [
     path("api/products/", home_views.products_api, name="products_api"),
     path("api/events/", home_views.events_api, name="events_api"),
     path("api/product-filters/", home_views.product_filters_api, name="product_filters_api"),
+    # New REST API v1 endpoints with Stripe integration
+    path("api/v1/", include("home.api.urls")),
+    # Stripe webhook endpoint
+    path("api/webhooks/stripe/", stripe_webhook, name="stripe-webhook"),
 ]
 
 

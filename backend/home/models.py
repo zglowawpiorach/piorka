@@ -1,3 +1,4 @@
+import logging
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.core.cache import cache
@@ -9,6 +10,15 @@ from wagtail.models import Page, Orderable
 from modelcluster.fields import ParentalKey
 from modelcluster.models import ClusterableModel
 from modelcluster.forms import ClusterForm
+
+logger = logging.getLogger(__name__)
+
+
+class ProductStatus(models.TextChoices):
+    """Product status choices for Stripe integration"""
+    ACTIVE = "active", "Active"        # visible in shop, buyable
+    INACTIVE = "inactive", "Inactive"  # hidden by client (e.g. sold on-site)
+    SOLD = "sold", "Sold"              # purchased online, moved to archive
 
 
 class ProductAdminForm(ClusterForm):
@@ -192,7 +202,17 @@ class Product(ClusterableModel):
     
     stripe_price_id = models.CharField(max_length=255, blank=True, help_text="Automatycznie generowane przez Stripe")
     stripe_product_id = models.CharField(max_length=255, blank=True, help_text="Automatycznie generowane przez Stripe")
-    
+
+    status = models.CharField(
+        max_length=20,
+        choices=ProductStatus.choices,
+        default=ProductStatus.ACTIVE,
+        db_index=True,
+        verbose_name="Status"
+    )
+    sold_at = models.DateTimeField(null=True, blank=True, verbose_name="Data sprzedaży")
+
+    # Legacy field - kept for backwards compatibility, mapped to status
     active = models.BooleanField(default=True, db_index=True, verbose_name="Czy dostepny w sklepie")
 
     featured = models.BooleanField(default=False, db_index=True, verbose_name="Wyróżnij na stronie głównej")
@@ -213,9 +233,18 @@ class Product(ClusterableModel):
 
     base_form_class = ProductAdminForm
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Flag to prevent Stripe sync from triggering signals in webhook handlers
+        self._skip_stripe_sync = False
+        # Track old status for signal handlers
+        self._old_status = None
+
     panels = [
         MultiFieldPanel([
             FieldPanel('slug'),
+            FieldPanel('status'),
+            FieldPanel('sold_at', read_only=True),
             FieldPanel('active'),
             FieldPanel('featured'),
         ], heading="Basic Info"),
@@ -248,8 +277,9 @@ class Product(ClusterableModel):
             FieldPanel('rodzaj_zapiecia'),
         ], heading="Elementy metalowe i zapięcia"),
         MultiFieldPanel([
-            FieldPanel('stripe_product_id'),
-            FieldPanel('stripe_price_id'),
+            FieldPanel('stripe_product_id', read_only=True),
+            FieldPanel('stripe_price_id', read_only=True),
+            FieldPanel('sold_at', read_only=True),
         ], heading="Stripe Integration"),
     ]
 
@@ -356,6 +386,14 @@ class Product(ClusterableModel):
         first_image = self.images.first()
         return first_image.image if first_image else None
 
+    @property
+    def is_buyable(self):
+        """
+        Returns True only if status is ACTIVE.
+        This is the main check for whether a product can be purchased.
+        """
+        return self.status == ProductStatus.ACTIVE
+
     def __str__(self):
         return self.name
 
@@ -367,6 +405,7 @@ class Product(ClusterableModel):
             models.Index(fields=['-created_at']),
             models.Index(fields=['active', '-created_at']),
             models.Index(fields=['featured', '-created_at']),
+            models.Index(fields=['status', '-created_at']),
         ]
 
 class EventImage(Orderable):
