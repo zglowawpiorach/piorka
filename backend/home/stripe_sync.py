@@ -370,3 +370,114 @@ class StripeSync:
             error_msg = f"Unexpected error: {str(e)}"
             logger.error(f"Checkout session error for product {product.pk}: {error_msg}")
             return {'success': False, 'error': error_msg}
+
+    @staticmethod
+    def create_basket_checkout_session(
+        products: List,
+        success_url: str,
+        cancel_url: str,
+        customer_email: Optional[str] = None
+    ) -> dict:
+        """
+        Create a Stripe Checkout Session for multiple products (basket).
+
+        Each product is unique (quantity always 1), but basket can contain
+        multiple different products.
+
+        Args:
+            products: List of Product instances (all must be ACTIVE and buyable)
+            success_url: URL to redirect after successful payment
+            cancel_url: URL to redirect if payment is cancelled
+            customer_email: Optional customer email for pre-filling
+
+        Returns:
+            Dict with 'success' (bool), 'checkout_url' (str), 'session_id' (str),
+            and optional 'error' message
+        """
+        if not products:
+            return {'success': False, 'error': 'Basket is empty'}
+
+        # Validate all products
+        for product in products:
+            if not product.is_buyable:
+                return {'success': False, 'error': f'Product {product.pk} is not buyable'}
+            if not product.stripe_price_id:
+                return {'success': False, 'error': f'Product {product.pk} has no stripe_price_id'}
+
+        try:
+            api_key = StripeSync._get_stripe_api_key()
+            stripe.api_key = api_key
+
+            # Ensure success_url has the CHECKOUT_SESSION_ID placeholder
+            if '{CHECKOUT_SESSION_ID}' not in success_url:
+                if '?' in success_url:
+                    success_url = f"{success_url}&session_id={{CHECKOUT_SESSION_ID}}"
+                else:
+                    success_url = f"{success_url}?session_id={{CHECKOUT_SESSION_ID}}"
+
+            # Build line items - one per product (quantity always 1)
+            line_items = [
+                {
+                    'price': product.stripe_price_id,
+                    'quantity': 1,
+                }
+                for product in products
+            ]
+
+            # Build session params
+            session_params = {
+                'mode': 'payment',
+                'line_items': line_items,
+                'success_url': success_url,
+                'cancel_url': cancel_url,
+                'metadata': {
+                    'product_ids': ','.join(str(p.pk) for p in products),
+                },
+            }
+
+            # Add shipping (only once, not per product)
+            session_params['shipping_options'] = [
+                {
+                    'shipping_rate_data': {
+                        'type': 'fixed_amount',
+                        'fixed_amount': {
+                            'amount': SHIPPING_COST_GROSZE,
+                            'currency': SHIPPING_CURRENCY,
+                        },
+                        'display_name': 'Przesyłka kurierska',
+                        'delivery_estimate': {
+                            'minimum': {'unit': 'business_day', 'value': 3},
+                            'maximum': {'unit': 'business_day', 'value': 7},
+                        },
+                    },
+                }
+            ]
+
+            # Add customer email if provided
+            if customer_email:
+                session_params['customer_email'] = customer_email
+                session_params['payment_intent_data'] = {
+                    'receipt_email': customer_email,
+                }
+
+            # Create the checkout session
+            session = stripe.checkout.Session.create(**session_params)
+
+            product_ids = ','.join(str(p.pk) for p in products)
+            logger.info(f"Created checkout session {session.id} for basket [{product_ids}]")
+            return {
+                'success': True,
+                'checkout_url': session.url,
+                'session_id': session.id,
+            }
+
+        except stripe.error.StripeError as e:
+            error_msg = f"Stripe API error: {str(e)}"
+            product_ids = ','.join(str(p.pk) for p in products)
+            logger.error(f"Checkout session error for basket [{product_ids}]: {error_msg}")
+            return {'success': False, 'error': error_msg}
+        except Exception as e:
+            error_msg = f"Unexpected error: {str(e)}"
+            product_ids = ','.join(str(p.pk) for p in products)
+            logger.error(f"Checkout session error for basket [{product_ids}]: {error_msg}")
+            return {'success': False, 'error': error_msg}
