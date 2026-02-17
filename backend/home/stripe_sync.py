@@ -186,6 +186,8 @@ class StripeSync:
                     logger.info(f"Created replacement Stripe price {new_stripe_price.id}")
 
             # Save the updated IDs to the product
+            # Skip signal to prevent infinite loop
+            product._skip_stripe_sync = True
             product.save(update_fields=['stripe_product_id', 'stripe_price_id'])
 
             return {'success': True}
