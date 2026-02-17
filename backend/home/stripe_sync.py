@@ -6,7 +6,7 @@ as well as creating checkout sessions.
 """
 
 import logging
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from django.conf import settings
 import stripe
@@ -34,6 +34,34 @@ class StripeSync:
         if not api_key:
             raise ValueError("STRIPE_SECRET_KEY is not configured in Django settings")
         return api_key
+
+    @staticmethod
+    def _build_absolute_url(relative_url: str) -> str:
+        """
+        Build absolute URL from relative path using PUBLIC_URL setting.
+
+        Args:
+            relative_url: Relative URL like '/media/images/image.jpg'
+
+        Returns:
+            Full URL like 'https://example.com/media/images/image.jpg'
+        """
+        if not relative_url:
+            return None
+
+        base_url = getattr(settings, 'PUBLIC_URL', '')
+        if not base_url:
+            logger.warning("PUBLIC_URL not configured, using relative URL for images")
+            return relative_url
+
+        # Remove trailing slash from base_url if present
+        base_url = base_url.rstrip('/')
+
+        # Ensure relative_url starts with /
+        if not relative_url.startswith('/'):
+            relative_url = '/' + relative_url
+
+        return f"{base_url}{relative_url}"
 
     @staticmethod
     def _price_to_grosze(price_value) -> int:
@@ -81,12 +109,18 @@ class StripeSync:
 
             if is_new:
                 # Create new Stripe Product
+                # Build absolute URL for product image
+                product_images: List[str] = []
+                if product.primary_image and product.primary_image.image:
+                    image_url = product.primary_image.image.file.url
+                    product_images.append(StripeSync._build_absolute_url(image_url))
+
                 stripe_product = stripe.Product.create(
                     name=product_name,
                     description=product_description,
                     active=product.status == 'active',
                     metadata=metadata,
-                    images=[product.primary_image.file.url if product.primary_image else None] if product.primary_image else [],
+                    images=product_images,
                 )
 
                 product.stripe_product_id = stripe_product.id
