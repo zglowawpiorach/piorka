@@ -110,9 +110,10 @@ class StripeSync:
             if is_new:
                 # Create new Stripe Product
                 # Build absolute URL for product image
+                # Note: product.primary_image already returns the wagtailimages.Image object
                 product_images: List[str] = []
-                if product.primary_image and product.primary_image.image:
-                    image_url = product.primary_image.image.file.url
+                if product.primary_image:
+                    image_url = product.primary_image.file.url
                     product_images.append(StripeSync._build_absolute_url(image_url))
 
                 stripe_product = stripe.Product.create(
