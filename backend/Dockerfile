@@ -43,6 +43,9 @@ RUN chown wagtail:wagtail /app
 # Copy the source code of the project into the container.
 COPY --chown=wagtail:wagtail . .
 
+# Create logs directory before switching user (so we can create it as root)
+RUN mkdir -p /app/logs
+
 # Use user "wagtail" to run the build commands below and the server itself.
 USER wagtail
 
